@@ -7,6 +7,7 @@ package frc.robot.Commands;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 
+import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Constants;
@@ -17,6 +18,9 @@ public class TeleopSwerve extends Command {
   private SwerveSubsystem mSwerve;
   private DoubleSupplier xSup, ySup, rotSup;
   private BooleanSupplier robotCentricSup;
+  private SlewRateLimiter xLimiter = new SlewRateLimiter(5);
+  private SlewRateLimiter yLimiter = new SlewRateLimiter(5);
+  private SlewRateLimiter rotLimiter = new SlewRateLimiter(5);
   /** Creates a new TeleopSwerve. */
   public TeleopSwerve(SwerveSubsystem mSwerve, DoubleSupplier xSup, DoubleSupplier ySup, DoubleSupplier rotSup, BooleanSupplier robotCentricSup) {
     // Use addRequirements() here to declare subsystem dependencies.
@@ -35,6 +39,6 @@ public class TeleopSwerve extends Command {
     double yVal = Math.abs(ySup.getAsDouble()) < 0.01 ? 0 : ySup.getAsDouble();
     double rotVal = Math.abs(rotSup.getAsDouble()) < 0.01 ? 0 : rotSup.getAsDouble();
 
-    mSwerve.drive(new Translation2d(xVal, yVal).times(Constants.SwerveConstants.maxSpeed * 0.5), rotVal * 0.5, !robotCentricSup.getAsBoolean());
+    mSwerve.drive(new Translation2d(xLimiter.calculate(xVal), yLimiter.calculate(yVal)).times(Constants.SwerveConstants.maxSpeed * 0.5), rotLimiter.calculate(rotVal * 0.2), !robotCentricSup.getAsBoolean());
   }
 }

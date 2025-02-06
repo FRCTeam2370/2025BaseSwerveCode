@@ -16,11 +16,11 @@ import edu.wpi.first.wpilibj.Encoder;
 /** Add your docs here. */
 public class Constants {
     public static class SwerveConstants {
-        public static final double DrivekP = 0.05;
+        public static final double DrivekP = 0.2;
         public static final double DrivekI = 0;
         public static final double DrivekD = 0;
 
-        public static final double TurnkP = 0.05;
+        public static final double TurnkP = 0.1;
         public static final double TurnkI = 0;
         public static final double TurnkD = 0;
 
