@@ -96,11 +96,7 @@ public class SwerveModule {
         turnMotor.setControl(angleDutyCyle.withPosition(0));
     }
 
-    public void configModule(){
-        driveMotor.setPosition(0);  
-        driveMotor.setNeutralMode(NeutralModeValue.Brake);//turn these back to brake after offsets
-        turnMotor.setNeutralMode(NeutralModeValue.Brake);
-        
+    public void configModule(){        
         driveMotorConfig.MotorOutput.Inverted = moduleConstants.driveInverted;
         turnMotorConfig.MotorOutput.Inverted = moduleConstants.turnInverted;
 
@@ -114,6 +110,10 @@ public class SwerveModule {
 
         driveMotor.getConfigurator().apply(driveMotorConfig);
         turnMotor.getConfigurator().apply(turnMotorConfig);
+
+        driveMotor.setPosition(0);  
+        driveMotor.setNeutralMode(NeutralModeValue.Brake);//turn these back to brake after offsets
+        turnMotor.setNeutralMode(NeutralModeValue.Brake);
     }
 
     public void configEncoder(){
