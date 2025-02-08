@@ -33,7 +33,7 @@ public class SwerveModule {
 
     private SwerveModuleConstants moduleConstants;
 
-    private Rotation2d lastAngle = new Rotation2d(0);
+    private Rotation2d lastAngle;
 
     private PositionDutyCycle angleDutyCyle = new PositionDutyCycle(0);
 
@@ -41,12 +41,14 @@ public class SwerveModule {
 
     public SwerveModule(int modueleNumber, SwerveModuleConstants moduleConstants){
         this.moduleConstants = moduleConstants;
+        this.moduleNumber = modueleNumber;
+
         driveMotor = new TalonFX(moduleConstants.driveMotorID);
         turnMotor = new TalonFX(moduleConstants.turnMotorID);
+        configModule();
+        
         turnEncoder = new CANcoder(moduleConstants.CANCoderID);
-        this.moduleNumber = modueleNumber;
-        // configModule();
-        // configEncoder();
+        //configEncoder();
 
         lastAngle = getState().angle;
     }
@@ -58,7 +60,7 @@ public class SwerveModule {
     }
 
     public Rotation2d getCANcoder(){
-        return Rotation2d.fromRotations(turnEncoder.getAbsolutePosition().waitForUpdate(0.5).getValueAsDouble());
+        return Rotation2d.fromRotations(turnEncoder.getAbsolutePosition().waitForUpdate(1).getValueAsDouble());
     }   
 
     public StatusSignal<Angle> getCANcoderVal(){
@@ -76,7 +78,6 @@ public class SwerveModule {
 
     private void setAngle(SwerveModuleState desiredState){
         Rotation2d angle = (Math.abs(desiredState.speedMetersPerSecond) <= (Constants.SwerveConstants.maxSpeed * 0.01)) ? lastAngle : desiredState.angle;
-
         turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(angle.getDegrees())));
         lastAngle = angle;
     }
@@ -89,14 +90,22 @@ public class SwerveModule {
         return new SwerveModulePosition(krakenToMeters(driveMotor.getPosition().getValueAsDouble()), getAngle());
     }
 
+    public double makePositiveDegrees(double CANcoderPos, double offset) {
+        if(offset > CANcoderPos){
+            offset -= 360;
+        }
+
+        return CANcoderPos - offset;
+    }
+
     public void resetToAbsolute(){
         //turnMotor.setPosition(0);
-        double absolutePosition = degreesToKraken(getCANcoder().getDegrees() - moduleConstants.CANCoderOffset.getDegrees());
+        double absolutePosition = degreesToKraken(makePositiveDegrees(getCANcoder().getDegrees(), moduleConstants.CANCoderOffset.getDegrees()));
         turnMotor.setPosition(absolutePosition);
         turnMotor.setControl(angleDutyCyle.withPosition(0));
     }
 
-    public void configModule(){        
+    public void configModule(){       
         driveMotorConfig.MotorOutput.Inverted = moduleConstants.driveInverted;
         turnMotorConfig.MotorOutput.Inverted = moduleConstants.turnInverted;
 
@@ -117,15 +126,14 @@ public class SwerveModule {
     }
 
     public void configEncoder(){
-        turnEncoder.getConfigurator().apply(new CANcoderConfiguration());
+        //turnEncoder.getConfigurator().apply(new CANcoderConfiguration());
 
-        encoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
+        encoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 1;
         encoderConfig.MagnetSensor.MagnetOffset = 0;//moduleConstants.CANCoderOffset.getRotations();
         encoderConfig.MagnetSensor.SensorDirection = moduleConstants.EncoderReversed;
         
         turnEncoder.getConfigurator().apply(encoderConfig);
     }
-
 
     //CONVERSIONS
     private double degreesToKraken(double degrees){

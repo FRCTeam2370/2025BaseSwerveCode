@@ -101,7 +101,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void configurePathPlanner(){
     try {
-      RobotConfig config = RobotConfig.fromGUISettings();
+    RobotConfig config = RobotConfig.fromGUISettings();
     AutoBuilder.configure(
             this::getPose, // Robot pose supplier
             this::resetOdometry, // Method to reset odometry (will be called if your auto has a starting pose)
@@ -162,7 +162,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void resetMods(){
     for(SwerveModule mod : mSwerveModules){
-      mod.configModule();
+      //mod.configModule();
       mod.configEncoder();
       mod.resetToAbsolute();
     }

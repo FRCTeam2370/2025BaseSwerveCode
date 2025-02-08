@@ -20,16 +20,16 @@ import frc.robot.Commands.TeleopSwerve;
 import frc.robot.Subsystems.SwerveSubsystem;
 
 public class RobotContainer {
-  private SendableChooser<Command> autoChooser;
+  private static SendableChooser<Command> autoChooser = new SendableChooser<>();
 
   public static final CommandXboxController driver = new CommandXboxController(0);
 
   private final SwerveSubsystem mSwerve = new SwerveSubsystem();
 
   public RobotContainer() {
-    autoChooser = AutoBuilder.buildAutoChooser();
+    //autoChooser = AutoBuilder.buildAutoChooser();
 
-    SmartDashboard.putData("Auto Chooser", autoChooser);
+    //SmartDashboard.putData("Auto Chooser", autoChooser);  
 
     //Put all NamedCommands here
     NamedCommands.registerCommand("Test", getAutonomousCommand());
