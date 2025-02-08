@@ -90,6 +90,7 @@ public class SwerveModule {
         return new SwerveModulePosition(krakenToMeters(driveMotor.getPosition().getValueAsDouble()), getAngle());
     }
 
+    //You  NEED this method in order to pass a positive value into the CTRESwerveModuleState.optimize() function so the modules don't spin on startup
     public double makePositiveDegrees(double CANcoderPos, double offset) {
         if(offset > CANcoderPos){
             offset -= 360;
