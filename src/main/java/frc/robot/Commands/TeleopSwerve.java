@@ -30,6 +30,7 @@ public class TeleopSwerve extends Command {
     this.ySup = ySup;
     this.rotSup = rotSup;
     this.robotCentricSup = robotCentricSup;
+    SwerveSubsystem.resetGyro();
   }
 
   // Called every time the scheduler runs while the command is scheduled.
@@ -39,6 +40,6 @@ public class TeleopSwerve extends Command {
     double yVal = Math.abs(ySup.getAsDouble()) < 0.01 ? 0 : ySup.getAsDouble();
     double rotVal = Math.abs(rotSup.getAsDouble()) < 0.01 ? 0 : rotSup.getAsDouble();
 
-    mSwerve.drive(new Translation2d(xLimiter.calculate(xVal), yLimiter.calculate(yVal)).times(Constants.SwerveConstants.maxSpeed * 0.5), rotLimiter.calculate(rotVal * 0.2), !robotCentricSup.getAsBoolean());
+    mSwerve.drive(new Translation2d(xLimiter.calculate(xVal), yLimiter.calculate(yVal)).times(Constants.SwerveConstants.maxSpeed * 0.7), rotLimiter.calculate(rotVal * 0.2), !robotCentricSup.getAsBoolean());
   }
 }
