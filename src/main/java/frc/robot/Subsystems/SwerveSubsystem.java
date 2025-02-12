@@ -163,7 +163,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public void resetMods(){
     for(SwerveModule mod : mSwerveModules){
       //mod.configModule();
-      mod.configEncoder();
+      //mod.configEncoder();
       mod.resetToAbsolute();
     }
   }
