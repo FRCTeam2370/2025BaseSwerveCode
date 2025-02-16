@@ -4,12 +4,15 @@
 
 package frc.robot;
 
+import java.util.spi.CurrencyNameProvider;
+
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.PositionDutyCycle;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -21,6 +24,7 @@ import edu.wpi.first.units.measure.ImmutableLinearVelocity;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Lib.Utils.CTREModuleState;
+import frc.robot.Lib.Utils.Optimize;
 import frc.robot.Lib.Utils.SwerveModuleConstants;
 
 /** Add your docs here. */
@@ -54,7 +58,7 @@ public class SwerveModule {
         lastAngle = getState().angle;
     }
 
-    public void configModule(){       
+    public void configModule(){
         driveMotorConfig.MotorOutput.Inverted = moduleConstants.driveInverted;
         turnMotorConfig.MotorOutput.Inverted = moduleConstants.turnInverted;
 
@@ -89,16 +93,20 @@ public class SwerveModule {
     }
 
     public void setDesiredState(SwerveModuleState state){
-        state = CTREModuleState.optimize(state, getState().angle);
+        //state = optimize(state, getState().angle);
+        //state = CTREModuleState.optimize(state, getState().angle);
         //state = optimizeState(state, lastAngle);
+        //state = Optimize.SwerveOptimizeAngle(state, lastAngle);
         setAngle(state);
         setSpeed(state);
         SmartDashboard.putNumber("Module angle", state.angle.getDegrees());
+        System.out.println("state.angle.getDegrees()" + state.angle.getDegrees());
+        System.out.println("state degrees" + state.angle.getDegrees());
     }
 
     public Rotation2d getCANcoder(){
         return Rotation2d.fromRotations(turnEncoder.getAbsolutePosition().waitForUpdate(1).getValueAsDouble());
-    }   
+    }
 
     public StatusSignal<Angle> getCANcoderVal(){
         return turnEncoder.getAbsolutePosition();
@@ -115,8 +123,8 @@ public class SwerveModule {
 
     private void setAngle(SwerveModuleState desiredState){
         Rotation2d angle = (Math.abs(desiredState.speedMetersPerSecond) <= (Constants.SwerveConstants.maxSpeed * 0.01)) ? lastAngle : desiredState.angle;
-        // Rotation2d oldAngle = getAngle();
-        // angle = optimizeTurn(oldAngle, angle);
+        Rotation2d oldAngle = getAngle();
+        angle = optimizeTurn2(oldAngle, angle);
         turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(angle.getDegrees())));
         lastAngle = angle;
     }
@@ -155,7 +163,7 @@ public class SwerveModule {
         }
     }
 
-    public double makePositiveDegrees(double anAngle) {
+    public static double makePositiveDegrees(double anAngle) {
         double degrees = anAngle;
         degrees = degrees % 360;
         if (degrees < 0.0){
@@ -165,7 +173,7 @@ public class SwerveModule {
 
     }
 
-    public double makePositiveDegrees(Rotation2d anAngle){
+    public static double makePositiveDegrees(Rotation2d anAngle){
         return makePositiveDegrees(anAngle.getDegrees());
     }
 
@@ -195,12 +203,39 @@ public class SwerveModule {
         return Rotation2d.fromDegrees(steerAngle);//makePositiveDegrees(steerAngle)
     }
 
+    public Rotation2d optimizeTurn2(Rotation2d oldAngle, Rotation2d newAngle){
+        double steerAngle = newAngle.getDegrees();//makePositiveDegrees(newAngle);
+        steerAngle %= (180);
+        if (steerAngle < 0.0) {
+            steerAngle += 180;
+        }
+
+        double difference = steerAngle - oldAngle.getDegrees();
+        // Change the target angle so the difference is in the range [-360, 360) instead of [0, 360)
+        if (difference >= 180) {
+            steerAngle -= 180;//360
+        } else if (difference < -180) {
+            steerAngle += 180;//360
+        }
+        difference = steerAngle - oldAngle.getDegrees(); // Recalculate difference
+
+        // If the difference is greater than 90 deg or less than -90 deg the drive can be inverted so the total
+        // movement of the module is less than 90 deg
+        if (difference >90 || difference < -90) {//90, -90
+            // Only need to add 180 deg here because the target angle will be put back into the range [0, 2pi)
+            steerAngle += 180;
+        }
+
+        return Rotation2d.fromDegrees(steerAngle);//makePositiveDegrees(steerAngle)
+    }
+
     public void resetToAbsolute(){
         //turnMotor.setPosition(0);
         double cancoderpos = getCANcoder().getDegrees();
         double absolutePosition = degreesToKraken(makePositiveDegrees(cancoderpos - moduleConstants.CANCoderOffset.getDegrees()));
         turnMotor.setPosition(absolutePosition);
         turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(getState().angle.getDegrees())));
+        System.out.println("abosolute Pos on Start up" + absolutePosition);
     }
 
     private static SwerveModuleState optimizeState(SwerveModuleState state, Rotation2d currentAngle){
@@ -209,6 +244,17 @@ public class SwerveModule {
         double dir = angle - lastAngle;
 
         return new SwerveModuleState(state.speedMetersPerSecond, Rotation2d.fromDegrees(dir));
+    }
+
+    public static SwerveModuleState optimize(SwerveModuleState desiredState, Rotation2d currentAngle) {
+        var delta = desiredState.angle.rotateBy(currentAngle.unaryMinus());    // todo check math
+        if (Math.abs(delta.getDegrees()) > 90.0) {
+            return new SwerveModuleState(
+                    -desiredState.speedMetersPerSecond,
+                    desiredState.angle.rotateBy(Rotation2d.fromDegrees(180.0)));
+        } else {
+            return new SwerveModuleState(desiredState.speedMetersPerSecond, desiredState.angle);
+        }
     }
 
     //CONVERSIONS
