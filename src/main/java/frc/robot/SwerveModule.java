@@ -180,6 +180,9 @@ public class SwerveModule {
         if (heading > 180.0) {
             heading -= 360.0;
         }
+        if (heading <= -180.0) {
+            heading += 360.0;
+        }
         return heading;
     }
 
