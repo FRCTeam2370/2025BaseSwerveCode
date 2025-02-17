@@ -40,6 +40,6 @@ public class TeleopSwerve extends Command {
     double yVal = Math.abs(ySup.getAsDouble()) < 0.01 ? 0 : ySup.getAsDouble();
     double rotVal = Math.abs(rotSup.getAsDouble()) < 0.01 ? 0 : rotSup.getAsDouble();
 
-    mSwerve.drive(new Translation2d(xLimiter.calculate(xVal), yLimiter.calculate(yVal)).times(Constants.SwerveConstants.maxSpeed), rotLimiter.calculate(rotVal * 0.2), !robotCentricSup.getAsBoolean());
+    mSwerve.drive(new Translation2d(xLimiter.calculate(xVal), yLimiter.calculate(yVal)).times(Constants.SwerveConstants.maxSpeed), rotLimiter.calculate(rotVal * 0.2), !robotCentricSup.getAsBoolean(), true);
   }
 }

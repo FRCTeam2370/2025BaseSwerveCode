@@ -20,9 +20,11 @@ public class Constants {
         public static final double DrivekI = 0;
         public static final double DrivekD = 0;
 
-        public static final double TurnkP = 0.2;
+        public static final double TurnkP = 4;
         public static final double TurnkI = 0;
         public static final double TurnkD = 0;
+
+        public static final double driveRamp = 0.2;
 
         public static final double maxSpeed = 3;//meters per second
         public static final double maxAngularVelocity = 1;

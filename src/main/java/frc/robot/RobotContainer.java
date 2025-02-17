@@ -7,9 +7,6 @@ package frc.robot;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
 
-import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
-import edu.wpi.first.wpilibj.GenericHID;
-import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -20,21 +17,20 @@ import frc.robot.Commands.TeleopSwerve;
 import frc.robot.Subsystems.SwerveSubsystem;
 
 public class RobotContainer {
-  private static SendableChooser<Command> autoChooser = new SendableChooser<>();
-
   public static final CommandXboxController driver = new CommandXboxController(0);
 
   private final SwerveSubsystem mSwerve = new SwerveSubsystem();
 
+  private final SendableChooser<Command> autoChooser;
+
   public RobotContainer() {
-    //autoChooser = AutoBuilder.buildAutoChooser();
-
-    //SmartDashboard.putData("Auto Chooser", autoChooser);  
-
+    autoChooser = AutoBuilder.buildAutoChooser();
     //Put all NamedCommands here
     NamedCommands.registerCommand("Test", getAutonomousCommand());
-
+    
     configureBindings();
+    
+    SmartDashboard.putData("Auto Chooser", autoChooser);
   }
 
   private void configureBindings() {

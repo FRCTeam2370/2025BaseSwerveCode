@@ -4,27 +4,20 @@
 
 package frc.robot;
 
-import java.util.spi.CurrencyNameProvider;
-
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.PositionDutyCycle;
+import com.ctre.phoenix6.controls.VelocityDutyCycle;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.units.measure.Angle;
-import edu.wpi.first.units.measure.AngularAcceleration;
-import edu.wpi.first.units.measure.ImmutableLinearVelocity;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import frc.robot.Lib.Utils.CTREModuleState;
-import frc.robot.Lib.Utils.Optimize;
 import frc.robot.Lib.Utils.SwerveModuleConstants;
 
 /** Add your docs here. */
@@ -41,6 +34,7 @@ public class SwerveModule {
     private Rotation2d lastAngle;
 
     private PositionDutyCycle angleDutyCyle = new PositionDutyCycle(0);
+    private VelocityDutyCycle velocityDutyCycle = new VelocityDutyCycle(0);
 
     public int moduleNumber;
 
@@ -58,19 +52,24 @@ public class SwerveModule {
         lastAngle = getState().angle;
     }
 
-    public void configModule(){       
+    public void configModule(){  
         driveMotorConfig.MotorOutput.Inverted = moduleConstants.driveInverted;
         turnMotorConfig.MotorOutput.Inverted = moduleConstants.turnInverted;
 
         driveMotorConfig.Slot0.kP = Constants.SwerveConstants.DrivekP;
         driveMotorConfig.Slot0.kI = Constants.SwerveConstants.DrivekI;
-        driveMotorConfig.Slot0.kD = Constants.SwerveConstants.DrivekD;
+        driveMotorConfig.Slot0.kD = Constants.SwerveConstants.DrivekD; 
+        driveMotorConfig.Slot0.kV = (1.51 / 12);
 
         turnMotorConfig.Slot0.kP = Constants.SwerveConstants.TurnkP;
         turnMotorConfig.Slot0.kI = Constants.SwerveConstants.TurnkI;
         turnMotorConfig.Slot0.kD = Constants.SwerveConstants.TurnkD;
 
-        // driveMotorConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = 0.3;
+        turnMotorConfig.Feedback.SensorToMechanismRatio = (150.0 / 7.0);
+
+        turnMotorConfig.ClosedLoopGeneral.ContinuousWrap = true;
+
+        driveMotorConfig.OpenLoopRamps.DutyCycleOpenLoopRampPeriod = Constants.SwerveConstants.driveRamp;
 
         driveMotor.getConfigurator().apply(driveMotorConfig);
         turnMotor.getConfigurator().apply(turnMotorConfig);
@@ -79,24 +78,21 @@ public class SwerveModule {
         driveMotor.setNeutralMode(NeutralModeValue.Brake);// turn these back to brake after offsets
         turnMotor.setNeutralMode(NeutralModeValue.Brake);
 
-        // resetToAbsolute();
+        resetToAbsolute();
     }
 
     public void configEncoder() {
-        // turnEncoder.getConfigurator().apply(new CANcoderConfiguration());
-
         encoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 1;
-        encoderConfig.MagnetSensor.MagnetOffset = 0; // moduleConstants.CANCoderOffset.getRotations();
+        encoderConfig.MagnetSensor.MagnetOffset = 0;
         encoderConfig.MagnetSensor.SensorDirection = moduleConstants.EncoderReversed;
 
         turnEncoder.getConfigurator().apply(encoderConfig);
     }
 
-    public void setDesiredState(SwerveModuleState state){
-        state = CTREModuleState.optimize(state, getState().angle);
-        //state = optimizeState(state, lastAngle);
+    public void setDesiredState(SwerveModuleState state, boolean isOpenLoop){
+        state.optimize(getState().angle);
         setAngle(state);
-        setSpeed(state);
+        setSpeed(state, isOpenLoop);
         SmartDashboard.putNumber("Module angle", state.angle.getDegrees());
         System.out.println("state.angle.getDegrees()" + state.angle.getDegrees());
         System.out.println("state degrees" + state.angle.getDegrees());
@@ -111,27 +107,23 @@ public class SwerveModule {
     }
 
     private Rotation2d getAngle() {
-        return Rotation2d.fromDegrees(krakenToDegrees(turnMotor.getPosition().getValueAsDouble()));// changed to
-                                                                                                   // Math.abs
+        return Rotation2d.fromRotations(turnMotor.getPosition().getValueAsDouble());                                                                                            // Math.abs
     }
 
-    private void setSpeed(SwerveModuleState desiredState) {
-        double output = desiredState.speedMetersPerSecond / Constants.SwerveConstants.maxSpeed;
-        driveMotor.set(output);
+    private void setSpeed(SwerveModuleState desiredState, boolean isOpenLoop) {
+        if(isOpenLoop){
+            double output = desiredState.speedMetersPerSecond / Constants.SwerveConstants.maxSpeed;
+            driveMotor.set(output);
+        }else{
+            double velocity =  MPSToKraken(desiredState.speedMetersPerSecond);
+            driveMotor.setControl(velocityDutyCycle.withVelocity(velocity));
+        }
+        
     }
 
     private void setAngle(SwerveModuleState desiredState){
         Rotation2d angle = (Math.abs(desiredState.speedMetersPerSecond) <= (Constants.SwerveConstants.maxSpeed * 0.01)) ? lastAngle : desiredState.angle;
-        // Rotation2d oldAngle = getAngle();
-        // angle = optimizeTurn(oldAngle, angle);
-        turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(angle.getDegrees())));
-        lastAngle = angle;
-    }
-
-    private void setAngleInit(Rotation2d angle) {
-        Rotation2d oldAngle = getAngle();
-        angle = optimizeTurn(oldAngle, angle);
-        turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(angle.getDegrees())));
+        turnMotor.setControl(angleDutyCyle.withPosition(angle.getRotations()));
         lastAngle = angle;
     }
 
@@ -143,115 +135,18 @@ public class SwerveModule {
         return new SwerveModulePosition(krakenToMeters(driveMotor.getPosition().getValueAsDouble()), getAngle());
     }
 
-    // You NEED this method in order to pass a positive value into the
-    // CTRESwerveModuleState.optimize() function so the modules don't spin on
-    // startup
-    // public double makePosDegrees(double CANcoderPos, double offset) {
-    // // if(offset > CANcoderPos){
-    // // offset -= 360;
-    // // }
-
-    // // return CANcoderPos - offset;
-
-    // if(offset > 180 && CANcoderPos <= 180){
-    // return (360 - offset) + CANcoderPos;
-    // }else if(offset > 180 && offset < CANcoderPos){
-    // return CANcoderPos - offset;
-    // }else if(offset < 180 && offset > CANcoderPos){
-    // return CANcoderPos - offset + 360;
-    // }else{
-    // return CANcoderPos - offset;
-    // }
-    // }
-
-    public static double makePositiveDegrees(double anAngle) {
-        double degrees = anAngle;
-        degrees = degrees % 360;
-        if (degrees < 0.0) {
-            degrees = degrees + 360;
-        }
-        return degrees;
-    }
-
-    /**
-     * Converts any angle to a heading in degrees from -180 to 180.
-     */
-    public double angleToHeading(double anAngle) {
-        double heading = anAngle % 360;
-        if (heading > 180.0) {
-            heading -= 360.0;
-        }
-        if (heading <= -180.0) {
-            heading += 360.0;
-        }
-        return heading;
-    }
-
-    public double makePositiveDegrees(Rotation2d anAngle){
-        return makePositiveDegrees(anAngle.getDegrees());
-    }
-
-    public Rotation2d optimizeTurn(Rotation2d oldAngle, Rotation2d newAngle) {
-        double steerAngle = newAngle.getDegrees() - oldAngle.getDegrees();
-        steerAngle = angleToHeading(steerAngle);
-        return Rotation2d.fromDegrees(steerAngle);
-    }
-
-    public Rotation2d optimizeTurn2(Rotation2d oldAngle, Rotation2d newAngle){
-        double steerAngle = newAngle.getDegrees();//makePositiveDegrees(newAngle);
-        steerAngle %= (180);
-        if (steerAngle < 0.0) {
-            steerAngle += 180;
-        }
-
-        double difference = steerAngle - oldAngle.getDegrees();
-        // Change the target angle so the difference is in the range [-360, 360) instead of [0, 360)
-        if (difference >= 180) {
-            steerAngle -= 180;//360
-        } else if (difference < -180) {
-            steerAngle += 180;//360
-        }
-        difference = steerAngle - oldAngle.getDegrees(); // Recalculate difference
-
-        // If the difference is greater than 90 deg or less than -90 deg the drive can be inverted so the total
-        // movement of the module is less than 90 deg
-        if (difference >90 || difference < -90) {//90, -90
-            // Only need to add 180 deg here because the target angle will be put back into the range [0, 2pi)
-            steerAngle += 180;
-        }
-
-        return Rotation2d.fromDegrees(steerAngle);//makePositiveDegrees(steerAngle)
-    }
-
     public void resetToAbsolute() {
-        // turnMotor.setPosition(0);
-        double cancoderpos = getCANcoder().getDegrees();
-        double absolutePosition = degreesToKraken(
-                makePositiveDegrees(cancoderpos - moduleConstants.CANCoderOffset.getDegrees()));
+        double cancoderpos = getCANcoder().getRotations();
+        double absolutePosition = cancoderpos - moduleConstants.CANCoderOffset.getRotations();
         turnMotor.setPosition(absolutePosition);
-        turnMotor.setControl(angleDutyCyle.withPosition(degreesToKraken(getState().angle.getDegrees())));
+        turnMotor.setControl(angleDutyCyle.withPosition(getState().angle.getRotations()));
         System.out.println("abosolute Pos on Start up" + absolutePosition);
     }
 
-    // private static SwerveModuleState optimizeState(SwerveModuleState state, Rotation2d currentAngle){
-    // double angle = state.angle.getDegrees() % 360;
-    // double lastAngle = currentAngle.getDegrees() % 360;
-    // double dir = angle - lastAngle;
-
-    //     return new SwerveModuleState(state.speedMetersPerSecond, Rotation2d.fromDegrees(dir));
-    // }
 
     // CONVERSIONS
-    private double degreesToKraken(double degrees) {
-        return degrees / 360 * (150 / 7);// degrees / (360 / (150/7))
-    }
-
-    private double krakenToDegrees(double rot) {
-        return rot / (150 / 7) * 360; // rot * (360 / (150/7))
-    }
-
-    private double krakenToRPM(double vel) {
-        double motorRPM = vel * 600;// don't know what these numbers are it may be (600 / 2048) instead
+    private double krakenToRPM(double rps) {
+        double motorRPM = rps * 60;// don't know what these numbers are it may be (600 / 2048) instead
         double mechRPM = motorRPM / 6.12;// gear ratio of l3 drives
         return mechRPM;
     }
@@ -263,9 +158,13 @@ public class SwerveModule {
 
     private double krakenToMPS(double vel) {
         double wheelRPM = krakenToRPM(vel);
-        double wheelMPS = wheelRPM * Constants.SwerveConstants.wheelCircumference / 60;// it may not be / 60 I don't
-                                                                                       // know
+        double wheelMPS = wheelRPM * Constants.SwerveConstants.wheelCircumference / 60;                                                           // know
         return wheelMPS;
+    }
+
+    private double MPSToKraken(double mps){
+        double wheelRPM = mps / Constants.SwerveConstants.wheelCircumference * 60;
+        return RPMToKraken(wheelRPM);
     }
 
     private double krakenToMeters(double rot) {
