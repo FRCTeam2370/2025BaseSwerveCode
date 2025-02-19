@@ -38,6 +38,8 @@ public class SwerveModule {
 
     public int moduleNumber;
 
+    private SwerveModuleState currentState;
+
     public SwerveModule(int moduleNumber, SwerveModuleConstants moduleConstants) {
         this.moduleConstants = moduleConstants;
         this.moduleNumber = moduleNumber;
@@ -59,7 +61,7 @@ public class SwerveModule {
         driveMotorConfig.Slot0.kP = Constants.SwerveConstants.DrivekP;
         driveMotorConfig.Slot0.kI = Constants.SwerveConstants.DrivekI;
         driveMotorConfig.Slot0.kD = Constants.SwerveConstants.DrivekD; 
-        driveMotorConfig.Slot0.kV = (1.51 / 12);
+        //driveMotorConfig.Slot0.kV = (1.51 / 12);
 
         turnMotorConfig.Slot0.kP = Constants.SwerveConstants.TurnkP;
         turnMotorConfig.Slot0.kI = Constants.SwerveConstants.TurnkI;
@@ -94,8 +96,17 @@ public class SwerveModule {
         setAngle(state);
         setSpeed(state, isOpenLoop);
         SmartDashboard.putNumber("Module angle", state.angle.getDegrees());
-        System.out.println("state.angle.getDegrees()" + state.angle.getDegrees());
         System.out.println("state degrees" + state.angle.getDegrees());
+        System.out.println("Module Speed" + state.speedMetersPerSecond);
+        currentState = state;
+    }
+
+    public double getWheelMPS(){
+        return krakenToMPS(driveMotor.getVelocity().getValueAsDouble());
+    }
+
+    public double getModuleMeters(){
+        return krakenToMeters(driveMotor.getPosition().getValueAsDouble());
     }
 
     public Rotation2d getCANcoder() {
@@ -114,11 +125,10 @@ public class SwerveModule {
         if(isOpenLoop){
             double output = desiredState.speedMetersPerSecond / Constants.SwerveConstants.maxSpeed;
             driveMotor.set(output);
-        }else{
+        }else if(isOpenLoop == false){
             double velocity =  MPSToKraken(desiredState.speedMetersPerSecond);
             driveMotor.setControl(velocityDutyCycle.withVelocity(velocity));
         }
-        
     }
 
     private void setAngle(SwerveModuleState desiredState){
@@ -156,22 +166,25 @@ public class SwerveModule {
         return motorRPM;
     }
 
-    private double krakenToMPS(double vel) {
-        double wheelRPM = krakenToRPM(vel);
-        double wheelMPS = wheelRPM * Constants.SwerveConstants.wheelCircumference / 60;                                                           // know
+    private double krakenToMPS(double krakenRPS) {
+        // double wheelRPM = krakenToRPM(vel);
+        // double wheelMPS = (wheelRPM * Constants.SwerveConstants.wheelCircumference) / 60;                                                           // know
+        // return wheelMPS;
+        double wheelrps = krakenRPS / 6.12;
+        double wheelMPS = wheelrps * Constants.SwerveConstants.wheelCircumferenceMeters;
         return wheelMPS;
     }
 
     private double MPSToKraken(double mps){
-        double wheelRPM = mps / Constants.SwerveConstants.wheelCircumference * 60;
+        double wheelRPM = mps / Constants.SwerveConstants.wheelCircumferenceMeters * 60;
         return RPMToKraken(wheelRPM);
     }
 
     private double krakenToMeters(double rot) {
-        return rot * (Constants.SwerveConstants.wheelCircumference / 6.12);
+        return rot * (Constants.SwerveConstants.wheelCircumferenceMeters / 6.12);
     }
 
     private double metersToKraken(double meters) {
-        return meters / (Constants.SwerveConstants.wheelCircumference / 6.12);
+        return meters / (Constants.SwerveConstants.wheelCircumferenceMeters / 6.12);
     }
 }
