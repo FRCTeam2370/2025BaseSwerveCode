@@ -71,7 +71,7 @@ public class SwerveSubsystem extends SubsystemBase {
       new SwerveModule(3, Constants.BRConstants.BRConstants)
     };
 
-    odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions());
+    odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, gyro.getRotation2d(), getModulePositions());
 
     poseEstimator = new SwerveDrivePoseEstimator(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions(), getPose());
 
@@ -94,13 +94,14 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("Wheel MPS", mSwerveModules[0].getWheelMPS());
     SmartDashboard.putNumber("Wheel Meters", mSwerveModules[0].getModuleMeters());
 
-    SmartDashboard.putNumber("Gyro Val", getRotation2d().getDegrees());
+    SmartDashboard.putNumber("Gyro Val", gyro.getRotation2d().getDegrees());
     SmartDashboard.putNumber("Heading", getHeading());
     SmartDashboard.putNumber("pose x", poseEstimator.getEstimatedPosition().getX());
     SmartDashboard.putNumber("pose y", poseEstimator.getEstimatedPosition().getY());
     SmartDashboard.putNumber("pose rot", poseEstimator.getEstimatedPosition().getRotation().getDegrees());
 
-    odometry.update(getRotation2d(), getModulePositions());
+    //odometry.update(getRotation2d(), getModulePositions());
+    odometry.update(gyro.getRotation2d(), getModulePositions());
     updateOdometry();
 
     field.setRobotPose(poseEstimator.getEstimatedPosition());

@@ -33,7 +33,7 @@ public class Constants {
         public static final double wheelCircumference = (2 * Math.PI) * wheelRadius;
         public static final double wheelCircumferenceMeters = wheelCircumference * 0.0254;
 
-        public static final int pigeonID = 0;
+        public static final int pigeonID = 1;
 
         public static final double trackWidth = 22.5;
         public static final double wheelBase = 20.5;
