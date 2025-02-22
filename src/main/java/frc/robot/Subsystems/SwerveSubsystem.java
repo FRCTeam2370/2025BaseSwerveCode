@@ -110,8 +110,9 @@ public class SwerveSubsystem extends SubsystemBase {
   public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop){
     SwerveModuleState[] swerveModuleStates = Constants.SwerveConstants.kinematics.toSwerveModuleStates(
       fieldRelative ? ChassisSpeeds.fromFieldRelativeSpeeds(translation.getX(), translation.getY(), rotationPID.calculate(rotation), getYaw()) :
-      new ChassisSpeeds(translation.getX(), translation.getY(), rotationPID.calculate(rotation))
+      new ChassisSpeeds(translation.getX(), translation.getY(), rotation)
     );
+    
 
     SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.SwerveConstants.maxSpeed);
 
@@ -132,7 +133,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public static void configureGyro(){
-    resetGyro();
+    //resetGyro();
   }
   public static void resetGyro(){
     gyro.setYaw(90);
@@ -163,17 +164,18 @@ public class SwerveSubsystem extends SubsystemBase {
     LimelightHelpers.SetRobotOrientation("limelight", poseEstimator.getEstimatedPosition().getRotation().getDegrees(), 0, 0, 0, 0, 0);
     LimelightHelpers.PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
 
-    if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
-      doRejectUpdate = true;
-    }
-    if(mt2.tagCount == 0){
-      doRejectUpdate = true;
-    }
-    if(!doRejectUpdate){
-      poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
-      poseEstimator.addVisionMeasurement(mt2.pose, mt2.timestampSeconds);
-    }
-    
+    if(mt2 != null){
+      if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
+        doRejectUpdate = true;
+      }
+      if(mt2.tagCount == 0){
+        doRejectUpdate = true;
+      }
+      if(!doRejectUpdate){
+        poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
+        poseEstimator.addVisionMeasurement(mt2.pose, mt2.timestampSeconds);
+      }
+    }    
   }
 
   public Pose2d getPose(){
@@ -190,7 +192,12 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public void driveRobotRelative(ChassisSpeeds speeds){
+    speeds.omegaRadiansPerSecond /= 3.1154127;
+
     ChassisSpeeds targetSpeeds = ChassisSpeeds.discretize(speeds, 0.02);
+
+    SmartDashboard.putNumber("translation speed x", speeds.vxMetersPerSecond);
+    SmartDashboard.putNumber("translation speed y", speeds.vyMetersPerSecond);
 
     SwerveModuleState[] states = Constants.SwerveConstants.kinematics.toSwerveModuleStates(targetSpeeds);
     SwerveDriveKinematics.desaturateWheelSpeeds(states, Constants.SwerveConstants.maxSpeed);
@@ -214,9 +221,9 @@ public class SwerveSubsystem extends SubsystemBase {
               this::getPose, // Robot pose supplier
               this::resetOdometry, // Method to reset odometry (will be called if your auto has a starting pose)
               this::getRobotRelativeSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-              (speeds, feedforwards) -> driveRobotRelative(speeds),//driveRobotRelative(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
+              (speeds, feedforwards) -> drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 5, false, true),//drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 3.1154127, false, true),//driveRobotRelative(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
               new PPHolonomicDriveController( // PPHolonomicController is the built in path following controller for holonomic drive trains
-                      new PIDConstants(5.0, 0.0, 0.0), // Translation PID constants
+                      new PIDConstants(0.1, 0.0, 0.0), // Translation PID constants
                       new PIDConstants(0.1, 0.0, 0.0) // Rotation PID constants
               ),
               config, // The robot configuration
