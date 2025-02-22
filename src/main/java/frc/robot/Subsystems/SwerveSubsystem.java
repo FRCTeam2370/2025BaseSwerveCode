@@ -53,6 +53,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public SwerveModule[] mSwerveModules;
   public static SwerveDriveOdometry odometry;
 
+  public static PIDController rotationPIDauto = new PIDController(0.1, 0.0, 0.01);
   public static PIDController rotationPID = new PIDController(0.5, 0, 0);
 
   public static Field2d field = new Field2d();
@@ -71,7 +72,7 @@ public class SwerveSubsystem extends SubsystemBase {
       new SwerveModule(3, Constants.BRConstants.BRConstants)
     };
 
-    odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, gyro.getRotation2d(), getModulePositions());
+    odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions());
 
     poseEstimator = new SwerveDrivePoseEstimator(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions(), getPose());
 
@@ -101,7 +102,7 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("pose rot", poseEstimator.getEstimatedPosition().getRotation().getDegrees());
 
     //odometry.update(getRotation2d(), getModulePositions());
-    odometry.update(gyro.getRotation2d(), getModulePositions());
+    odometry.update(getRotation2d(), getModulePositions());
     updateOdometry();
 
     field.setRobotPose(poseEstimator.getEstimatedPosition());
@@ -110,9 +111,8 @@ public class SwerveSubsystem extends SubsystemBase {
   public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop){
     SwerveModuleState[] swerveModuleStates = Constants.SwerveConstants.kinematics.toSwerveModuleStates(
       fieldRelative ? ChassisSpeeds.fromFieldRelativeSpeeds(translation.getX(), translation.getY(), rotationPID.calculate(rotation), getYaw()) :
-      new ChassisSpeeds(translation.getX(), translation.getY(), rotation)
-    );
-    
+      new ChassisSpeeds(translation.getX(), translation.getY(), rotationPIDauto.calculate(rotation))
+    );    
 
     SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, Constants.SwerveConstants.maxSpeed);
 
@@ -133,7 +133,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public static void configureGyro(){
-    //resetGyro();
+    resetGyro();
   }
   public static void resetGyro(){
     gyro.setYaw(90);
@@ -153,7 +153,7 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   public void resetOdometry(Pose2d pose){
-    odometry.resetPosition(getRotation2d(), getModulePositions(), pose);
+    odometry.resetPosition(getRotation2d(), getModulePositions(), pose);//pose.getRotation()
   }
 
   public void updateOdometry(){
@@ -221,9 +221,9 @@ public class SwerveSubsystem extends SubsystemBase {
               this::getPose, // Robot pose supplier
               this::resetOdometry, // Method to reset odometry (will be called if your auto has a starting pose)
               this::getRobotRelativeSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-              (speeds, feedforwards) -> drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 5, false, true),//drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 3.1154127, false, true),//driveRobotRelative(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
+              (speeds, feedforwards) -> drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), -speeds.omegaRadiansPerSecond / Constants.SwerveConstants.maxAngularVelocity, false, true),//drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 3.1154127, false, true),//driveRobotRelative(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
               new PPHolonomicDriveController( // PPHolonomicController is the built in path following controller for holonomic drive trains
-                      new PIDConstants(0.1, 0.0, 0.0), // Translation PID constants
+                      new PIDConstants(5, 0.0, 0.0), // Translation PID constants
                       new PIDConstants(0.1, 0.0, 0.0) // Rotation PID constants
               ),
               config, // The robot configuration
