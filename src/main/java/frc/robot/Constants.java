@@ -6,8 +6,10 @@ package frc.robot;
 
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.SensorDirectionValue;
+import com.pathplanner.lib.path.PathConstraints;
 
 import frc.robot.Lib.Utils.SwerveModuleConstants;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -16,6 +18,7 @@ import edu.wpi.first.wpilibj.Encoder;
 /** Add your docs here. */
 public class Constants {
     public static class SwerveConstants {
+        public static final PathConstraints telePathConstraints = new PathConstraints(1, 1, 2 * Math.PI, 4 * Math.PI);
         public static final double DrivekP = 0.2;
         public static final double DrivekI = 0;
         public static final double DrivekD = 0;
@@ -28,6 +31,8 @@ public class Constants {
 
         public static final double maxSpeed = 5.21208;//meters per second
         public static final double maxAngularVelocity = 3.1154127;//radians per second
+
+        public static final double HeadingOffset = 90;//degrees from forward
 
         public static final double wheelRadius = 2;
         public static final double wheelCircumference = (2 * Math.PI) * wheelRadius;
@@ -106,5 +111,14 @@ public class Constants {
         public static final SensorDirectionValue EncoderReversed = SensorDirectionValue.CounterClockwise_Positive;
 
         public static final SwerveModuleConstants BLConstants = new SwerveModuleConstants(driveMotorID, turnMotorID, CANCoderID, driveInverted, turnInverted, EncoderOffset, EncoderReversed);
+    }
+
+    public static class RedSidePoses {
+        public static final Pose2d REDLEFTLOADING = new Pose2d(16.3,0.49, Rotation2d.fromDegrees(-50));// May need some tuning
+        public static final Pose2d REDRIGHTLOADING = new Pose2d();
+
+        public static final Pose2d REDFRONTSCORE = new Pose2d();
+        public static final Pose2d REDFRONTLEFTSCORE = new Pose2d(13.75,3.08, Rotation2d.fromDegrees(120));
+        public static final Pose2d REDBACKLEFTSCORE = new Pose2d(12.66, 2.98, Rotation2d.fromDegrees(60));
     }
 }

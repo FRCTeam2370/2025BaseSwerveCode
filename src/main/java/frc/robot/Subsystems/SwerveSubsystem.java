@@ -8,6 +8,10 @@ import static edu.wpi.first.units.Units.Rotation;
 
 import java.io.IOException;
 import java.net.ContentHandler;
+import java.text.Collator;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
 
 import org.json.simple.parser.ParseException;
 
@@ -20,6 +24,8 @@ import com.pathplanner.lib.config.ModuleConfig;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.PathPlannerLogging;
 
 import edu.wpi.first.math.VecBuilder;
@@ -39,8 +45,11 @@ import edu.wpi.first.units.measure.Time;
 import edu.wpi.first.util.sendable.Sendable;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.DeferredCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants;
 import frc.robot.LimelightHelpers;
@@ -59,8 +68,13 @@ public class SwerveSubsystem extends SubsystemBase {
   public static Field2d field = new Field2d();
 
   public static SwerveDrivePoseEstimator poseEstimator;
+
+  public static Optional<Alliance> color;
   /** Creates a new SwerveSubsystem. */
   public SwerveSubsystem() {
+    color = DriverStation.getAlliance();
+    SmartDashboard.putString("Alliace Color", color.toString());
+
     rotationPID.enableContinuousInput(-Math.PI, Math.PI);
 
     configureGyro();
@@ -74,7 +88,9 @@ public class SwerveSubsystem extends SubsystemBase {
 
     odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions());
 
-    poseEstimator = new SwerveDrivePoseEstimator(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions(), getPose());
+    configurePathPlanner();
+
+    poseEstimator = new SwerveDrivePoseEstimator(Constants.SwerveConstants.kinematics, getYaw(), getModulePositions(), getPose());
 
     configurePathPlanner();
 
@@ -101,16 +117,16 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("pose y", poseEstimator.getEstimatedPosition().getY());
     SmartDashboard.putNumber("pose rot", poseEstimator.getEstimatedPosition().getRotation().getDegrees());
 
-    //odometry.update(getRotation2d(), getModulePositions());
-    odometry.update(getRotation2d(), getModulePositions());
     updateOdometry();
+    //odometry.update(getRotation2d(), getModulePositions());
+    resetOdometry(poseEstimator.getEstimatedPosition());//odometry.update(gyro.getRotation2d(), getModulePositions());//getRotation2d()
 
     field.setRobotPose(poseEstimator.getEstimatedPosition());
   }
 
   public void drive(Translation2d translation, double rotation, boolean fieldRelative, boolean isOpenLoop){
     SwerveModuleState[] swerveModuleStates = Constants.SwerveConstants.kinematics.toSwerveModuleStates(
-      fieldRelative ? ChassisSpeeds.fromFieldRelativeSpeeds(translation.getX(), translation.getY(), rotationPID.calculate(rotation), getYaw()) :
+      fieldRelative ? ChassisSpeeds.fromFieldRelativeSpeeds(translation.getX(), translation.getY(), rotationPID.calculate(rotation), getRotation2d()) :
       new ChassisSpeeds(translation.getX(), translation.getY(), rotationPIDauto.calculate(rotation))
     );    
 
@@ -136,7 +152,12 @@ public class SwerveSubsystem extends SubsystemBase {
     resetGyro();
   }
   public static void resetGyro(){
-    gyro.setYaw(90);
+    if(color.isPresent() && color.get() == Alliance.Blue){
+      gyro.setYaw(90);
+    }else{
+      gyro.setYaw(270);
+    }
+    
   }
 
   public Rotation2d getYaw(){
@@ -154,10 +175,11 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void resetOdometry(Pose2d pose){
     odometry.resetPosition(getRotation2d(), getModulePositions(), pose);//pose.getRotation()
+    poseEstimator.resetPose(pose);
   }
 
   public void updateOdometry(){
-    poseEstimator.update(getRotation2d(), getModulePositions());
+    poseEstimator.update(getYaw(), getModulePositions());
 
     boolean doRejectUpdate = false;
 
@@ -175,11 +197,11 @@ public class SwerveSubsystem extends SubsystemBase {
         poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
         poseEstimator.addVisionMeasurement(mt2.pose, mt2.timestampSeconds);
       }
-    }    
+    } 
   }
 
   public Pose2d getPose(){
-    return odometry.getPoseMeters();
+    return odometry.getPoseMeters();//poseEstimator.getEstimatedPosition();
   }
 
   public ChassisSpeeds getRobotRelativeSpeeds(){
@@ -189,6 +211,23 @@ public class SwerveSubsystem extends SubsystemBase {
       mSwerveModules[2].getState(),
       mSwerveModules[3].getState()
     );
+  }
+
+  public void goToPose(Pose2d pose){
+
+  }
+
+  public Command PathfindToPose(Supplier<Pose2d> poseSupplier){
+    return new DeferredCommand(()-> AutoBuilder.pathfindToPose(poseSupplier.get(), Constants.SwerveConstants.telePathConstraints), Set.of(this));
+  }
+
+  public Command PathfindThenFollow(PathPlannerPath path){
+    path.preventFlipping = false;
+    return new DeferredCommand(()-> AutoBuilder.pathfindThenFollowPath(path, Constants.SwerveConstants.telePathConstraints), Set.of(this));
+  }
+
+  public Command followPath(PathPlannerPath path){
+    return AutoBuilder.followPath(path);
   }
 
   public void driveRobotRelative(ChassisSpeeds speeds){
@@ -231,9 +270,8 @@ public class SwerveSubsystem extends SubsystemBase {
                 // Boolean supplier that controls when the path will be mirrored for the red alliance
                 // This will flip the path being followed to the red side of the field.
                 // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
-                var alliance = DriverStation.getAlliance();
-                if (alliance.isPresent()) {
-                  return alliance.get() == DriverStation.Alliance.Red;
+                if (color.isPresent()) {
+                  return color.get() == DriverStation.Alliance.Red;
                 }
                 return false;
               },

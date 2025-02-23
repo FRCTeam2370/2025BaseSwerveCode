@@ -4,13 +4,20 @@
 
 package frc.robot;
 
+import java.io.IOException;
+
+import org.json.simple.parser.ParseException;
+
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.util.FileVersionException;
 
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.util.MsvcRuntimeException;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -35,14 +42,22 @@ public class RobotContainer {
     SmartDashboard.putData("Auto Chooser", autoChooser);
     //Put all NamedCommands here
     NamedCommands.registerCommand("Test", new ResetGyro(mSwerve));
-    
+
     configureBindings();
   }
 
   private void configureBindings() {
     mSwerve.setDefaultCommand(new TeleopSwerve(mSwerve, ()-> driver.getRawAxis(0), ()-> -driver.getRawAxis(1), ()-> driver.getRawAxis(4), ()-> false));
 
-    //driver.b().toggleOnTrue(new GoToSwervePose(mSwerve, new Pose2d(new Translation2d(11.4, 7.7), Rotation2d.fromDegrees(90))));
+    //driver.b().whileTrue(mSwerve.PathfindToPose(() -> new Pose2d(16.3,0.49, Rotation2d.fromDegrees(-50))));
+    try {
+      driver.b().whileTrue(mSwerve.PathfindThenFollow(PathPlannerPath.fromPathFile("CoralLoadLR")));
+    } catch (FileVersionException | IOException | ParseException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    driver.x().whileTrue(mSwerve.PathfindToPose(() -> Constants.RedSidePoses.REDFRONTLEFTSCORE));
+    driver.y().whileTrue(mSwerve.PathfindToPose(()-> Constants.RedSidePoses.REDBACKLEFTSCORE));
 
     driver.a().onTrue(new ResetGyro(mSwerve));
   }
