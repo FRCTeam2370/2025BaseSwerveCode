@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.Commands.DriveRobotRelative;
+import frc.robot.Commands.FindDriveKS;
 import frc.robot.Commands.GoToSwervePose;
 import frc.robot.Commands.ResetGyro;
 import frc.robot.Commands.TeleopSwerve;
@@ -60,6 +61,8 @@ public class RobotContainer {
     driver.y().whileTrue(mSwerve.PathfindToPose(()-> Constants.RedSidePoses.REDBACKLEFTSCORE));
 
     driver.a().onTrue(new ResetGyro(mSwerve));
+
+    driver.leftTrigger().toggleOnTrue(new FindDriveKS(mSwerve));
   }
 
   public Command getAutonomousCommand() {

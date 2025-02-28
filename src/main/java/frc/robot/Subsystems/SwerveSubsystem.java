@@ -62,7 +62,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public SwerveModule[] mSwerveModules;
   public static SwerveDriveOdometry odometry;
 
-  public static PIDController rotationPIDauto = new PIDController(0.1, 0.0, 0.01);
+  public static PIDController rotationPIDauto = new PIDController(0.075, 0.0, 0.01);
   public static PIDController rotationPID = new PIDController(0.5, 0, 0);
 
   public static Field2d field = new Field2d();
@@ -111,6 +111,9 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("Wheel MPS", mSwerveModules[0].getWheelMPS());
     SmartDashboard.putNumber("Wheel Meters", mSwerveModules[0].getModuleMeters());
 
+    SmartDashboard.putNumber("wheel Velocity", mSwerveModules[0].getWheelVelocity());
+    SmartDashboard.putNumber("drive Voltage", mSwerveModules[0].getWheelVoltage());
+
     SmartDashboard.putNumber("Gyro Val", gyro.getRotation2d().getDegrees());
     SmartDashboard.putNumber("Heading", getHeading());
     SmartDashboard.putNumber("pose x", poseEstimator.getEstimatedPosition().getX());
@@ -118,8 +121,8 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("pose rot", poseEstimator.getEstimatedPosition().getRotation().getDegrees());
 
     updateOdometry();
-    //odometry.update(getRotation2d(), getModulePositions());
-    resetOdometry(poseEstimator.getEstimatedPosition());//odometry.update(gyro.getRotation2d(), getModulePositions());//getRotation2d()
+    odometry.update(getRotation2d(), getModulePositions());
+    //resetOdometry(poseEstimator.getEstimatedPosition());
 
     field.setRobotPose(poseEstimator.getEstimatedPosition());
   }
@@ -175,7 +178,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void resetOdometry(Pose2d pose){
     odometry.resetPosition(getRotation2d(), getModulePositions(), pose);//pose.getRotation()
-    poseEstimator.resetPose(pose);
+    //poseEstimator.resetPose(pose);
   }
 
   public void updateOdometry(){
@@ -241,10 +244,10 @@ public class SwerveSubsystem extends SubsystemBase {
     SwerveModuleState[] states = Constants.SwerveConstants.kinematics.toSwerveModuleStates(targetSpeeds);
     SwerveDriveKinematics.desaturateWheelSpeeds(states, Constants.SwerveConstants.maxSpeed);
 
-    mSwerveModules[0].setDesiredState(states[0], true);
-    mSwerveModules[1].setDesiredState(states[1], true);
-    mSwerveModules[2].setDesiredState(states[2], true);
-    mSwerveModules[3].setDesiredState(states[3], true);
+    mSwerveModules[0].setDesiredState(states[0], false);
+    mSwerveModules[1].setDesiredState(states[1], false);
+    mSwerveModules[2].setDesiredState(states[2], false);
+    mSwerveModules[3].setDesiredState(states[3], false);
   }
 
   public void configurePathPlanner(){
@@ -262,8 +265,8 @@ public class SwerveSubsystem extends SubsystemBase {
               this::getRobotRelativeSpeeds, // ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
               (speeds, feedforwards) -> drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), -speeds.omegaRadiansPerSecond / Constants.SwerveConstants.maxAngularVelocity, false, true),//drive(new Translation2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond), speeds.omegaRadiansPerSecond / 3.1154127, false, true),//driveRobotRelative(speeds), // Method that will drive the robot given ROBOT RELATIVE ChassisSpeeds. Also optionally outputs individual module feedforwards
               new PPHolonomicDriveController( // PPHolonomicController is the built in path following controller for holonomic drive trains
-                      new PIDConstants(5, 0.0, 0.0), // Translation PID constants
-                      new PIDConstants(0.1, 0.0, 0.0) // Rotation PID constants
+                      new PIDConstants(10, 0, 0.0), // Translation PID constants
+                      new PIDConstants(1, 0.0, 0.0) // Rotation PID constants
               ),
               config, // The robot configuration
               () -> {

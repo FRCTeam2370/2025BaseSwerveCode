@@ -61,7 +61,8 @@ public class SwerveModule {
         driveMotorConfig.Slot0.kP = Constants.SwerveConstants.DrivekP;
         driveMotorConfig.Slot0.kI = Constants.SwerveConstants.DrivekI;
         driveMotorConfig.Slot0.kD = Constants.SwerveConstants.DrivekD; 
-        //driveMotorConfig.Slot0.kV = (1.51 / 12);
+        driveMotorConfig.Slot0.kS = Constants.SwerveConstants.DriveKS;
+        driveMotorConfig.Slot0.kV = Constants.SwerveConstants.DriveKV;
 
         turnMotorConfig.Slot0.kP = Constants.SwerveConstants.TurnkP;
         turnMotorConfig.Slot0.kI = Constants.SwerveConstants.TurnkI;
@@ -103,6 +104,14 @@ public class SwerveModule {
 
     public double getWheelMPS(){
         return krakenToMPS(driveMotor.getVelocity().getValueAsDouble());
+    }
+
+    public double getWheelVelocity(){
+        return driveMotor.getVelocity().getValueAsDouble();
+    }
+
+    public double getWheelVoltage(){
+        return driveMotor.getMotorVoltage().getValueAsDouble();
     }
 
     public double getModuleMeters(){
@@ -176,12 +185,12 @@ public class SwerveModule {
     }
 
     private double MPSToKraken(double mps){
-        double wheelRPM = mps / Constants.SwerveConstants.wheelCircumferenceMeters * 60;
+        double wheelRPM = (mps / Constants.SwerveConstants.wheelCircumferenceMeters) * 60;
         return RPMToKraken(wheelRPM);
     }
 
     private double krakenToMeters(double rot) {
-        return rot * (Constants.SwerveConstants.wheelCircumferenceMeters / 6.12);
+        return rot / 6.12 * Constants.SwerveConstants.wheelCircumferenceMeters;// was this -> rot * (Constants.SwerveConstants.wheelCircumferenceMeters / 6.12)
     }
 
     private double metersToKraken(double meters) {
