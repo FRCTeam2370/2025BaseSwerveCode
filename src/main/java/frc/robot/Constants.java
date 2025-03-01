@@ -19,11 +19,11 @@ import edu.wpi.first.wpilibj.Encoder;
 public class Constants {
     public static class SwerveConstants {
         public static final PathConstraints telePathConstraints = new PathConstraints(1, 1, 2 * Math.PI, 4 * Math.PI);
-        public static final double DrivekP = 0.4;//0.2
-        public static final double DrivekI = 0.1;
-        public static final double DrivekD = 0.001;
-        public static final double DriveKS = 0.2;//for finding the kv and ks based off of each other -> 10 vel at 1.45 volt -> 1.45 - 0.3 = 1.15 / 10 = 0.115
-        public static final double DriveKV = 0.225;//0.125
+        public static final double DrivekP = 0.2;
+        public static final double DrivekI = 0.0;//0.1
+        public static final double DrivekD = 0.01;
+        public static final double DriveKS = 0.3;//for finding the kv and ks based off of each other -> 10 vel at 1.45 volt -> 1.45 - 0.3 = 1.15 / 10 = 0.115
+        public static final double DriveKV = 0.125;//0.125
 
         public static final double TurnkP = 4;
         public static final double TurnkI = 0;
@@ -36,7 +36,7 @@ public class Constants {
 
         public static final double HeadingOffset = 90;//degrees from forward
 
-        public static final double wheelRadius = 2;
+        public static final double wheelRadius = 3.75 / 2;
         public static final double wheelCircumference = (2 * Math.PI) * wheelRadius;
         public static final double wheelCircumferenceMeters = wheelCircumference * 0.0254;
 

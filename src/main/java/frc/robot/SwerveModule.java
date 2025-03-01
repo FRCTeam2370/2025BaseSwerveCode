@@ -135,7 +135,7 @@ public class SwerveModule {
             double output = desiredState.speedMetersPerSecond / Constants.SwerveConstants.maxSpeed;
             driveMotor.set(output);
         }else if(isOpenLoop == false){
-            double velocity =  MPSToKraken(desiredState.speedMetersPerSecond);
+            double velocity = MPSToKraken(desiredState.speedMetersPerSecond);
             driveMotor.setControl(velocityDutyCycle.withVelocity(velocity));
         }
     }
@@ -172,7 +172,7 @@ public class SwerveModule {
 
     private double RPMToKraken(double RPM) {
         double motorRPM = RPM * 6.12;
-        return motorRPM;
+        return motorRPM / 60;
     }
 
     private double krakenToMPS(double krakenRPS) {
