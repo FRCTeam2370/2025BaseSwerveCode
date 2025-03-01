@@ -18,6 +18,7 @@ import org.json.simple.parser.ParseException;
 import com.ctre.phoenix6.configs.Pigeon2Configuration;
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.util.RootNameLookup;
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.ModuleConfig;
@@ -27,12 +28,16 @@ import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
 import com.pathplanner.lib.path.PathPlannerPath;
 import com.pathplanner.lib.util.PathPlannerLogging;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
 
+import edu.wpi.first.math.Pair;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.estimator.PoseEstimator;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.Kinematics;
@@ -70,6 +75,9 @@ public class SwerveSubsystem extends SubsystemBase {
   public static SwerveDrivePoseEstimator poseEstimator;
 
   public static Optional<Alliance> color;
+
+  private static Pose2d limelightPose, limelight2Pose;
+
   /** Creates a new SwerveSubsystem. */
   public SwerveSubsystem() {
     color = DriverStation.getAlliance();
@@ -85,6 +93,9 @@ public class SwerveSubsystem extends SubsystemBase {
       new SwerveModule(2, Constants.BLConstants.BLConstants),
       new SwerveModule(3, Constants.BRConstants.BRConstants)
     };
+
+    LimelightHelpers.setPipelineIndex("limelight", 0);
+    LimelightHelpers.setPipelineIndex("limelight-two", 0);
 
     odometry = new SwerveDriveOdometry(Constants.SwerveConstants.kinematics, getRotation2d(), getModulePositions());
 
@@ -186,10 +197,88 @@ public class SwerveSubsystem extends SubsystemBase {
     poseEstimator.update(getYaw(), getModulePositions());
 
     boolean doRejectUpdate = false;
+    Pose2d botPose;
+    double botTimestamp;
+
+    boolean usell1 = false;
+    boolean usell2 = false;
+
+    Pose2d ll1pose = getLimelight1Pose().getFirst();
+    Pose2d ll2pose = getLimelight2Pose().getFirst();
+
+    double ll1timestamp = getLimelight1Pose().getSecond();
+    double ll2timestamp = getLimelight2Pose().getSecond();
+
+    if(ll1pose == null && ll2pose == null){
+      doRejectUpdate = true;
+    }
+    if(ll1pose != null){
+      usell1 = true;
+    }
+    if(ll2pose != null){
+      usell2 = true;
+    }
+    if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
+      doRejectUpdate = true;
+    }
+    
+    if(!doRejectUpdate){
+      if(usell1 && usell2){
+        Pose2d avepose = new Pose2d(new Translation2d((ll1pose.getX() + ll2pose.getX()) / 2, (ll1pose.getY() + ll2pose.getY()) / 2), poseEstimator.getEstimatedPosition().getRotation());
+        botPose = avepose;
+        SmartDashboard.putNumber("bot Pose limelight average x", botPose.getX());
+        SmartDashboard.putNumber("bot Pose limelight average y", botPose.getY());
+        SmartDashboard.putNumber("bot Pose limelight average rot", botPose.getRotation().getDegrees());
+        SmartDashboard.putNumber("limelight 1 x", ll1pose.getX());
+        SmartDashboard.putNumber("limelight 1 y", ll1pose.getY());
+        SmartDashboard.putNumber("limelight 1 rot", ll1pose.getRotation().getDegrees());
+        SmartDashboard.putNumber("limelight 2 x", ll2pose.getX());
+        SmartDashboard.putNumber("limelight 2 y", ll2pose.getY());
+        SmartDashboard.putNumber("limelight 2 rot", ll2pose.getRotation().getDegrees());
+  
+        botTimestamp = (ll1timestamp + ll2timestamp) / 2; 
+        poseEstimator.addVisionMeasurement(botPose, botTimestamp);
+      }else if(usell1 && usell2 == false){
+        poseEstimator.addVisionMeasurement(ll1pose, ll1timestamp);
+      }else if(usell2 && usell1 == false){
+        poseEstimator.addVisionMeasurement(ll2pose, ll2timestamp);
+      }
+      
+    }
+  }
+
+  public static Pair<Pose2d, Double> getLimelight1Pose(){
+    boolean doRejectUpdate = false;
+    Pose2d returnPose = null;
+    double returnTime = 0;
+
+    LimelightHelpers.SetRobotOrientation("limelight", poseEstimator.getEstimatedPosition().getRotation().getDegrees(), 0, 0, 0, 0, 0);
+    LimelightHelpers.PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
+
+    if(mt2 != null){
+      if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
+        doRejectUpdate = true;
+      }
+      if(mt2.tagCount == 0){
+        doRejectUpdate = true;
+      }
+      if(!doRejectUpdate){
+        poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
+        returnPose = mt2.pose;
+        returnTime = mt2.timestampSeconds;
+      }
+    }
+
+    return Pair.of(returnPose, returnTime);
+  }
+
+  public Pair<Pose2d, Double> getLimelight2Pose(){
+    boolean doRejectUpdate = false;
+    Pose2d returnPose = null;
+    double returnTime = 0;
 
     LimelightHelpers.SetRobotOrientation("limelight-two", poseEstimator.getEstimatedPosition().getRotation().getDegrees(), 0, 0, 0, 0, 0);
-    LimelightHelpers.PoseEstimate mt2_otherOne = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
-    //LimelightHelpers.PoseEstimate mt2_otherOne = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight-two");
+    LimelightHelpers.PoseEstimate mt2_otherOne = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight-two");
 
     if(mt2_otherOne != null){
       if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
@@ -200,9 +289,12 @@ public class SwerveSubsystem extends SubsystemBase {
       }
       if(!doRejectUpdate){
         poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
-        poseEstimator.addVisionMeasurement(mt2_otherOne.pose, mt2_otherOne.timestampSeconds);
+        returnPose = mt2_otherOne.pose;
+        returnTime = mt2_otherOne.timestampSeconds;
       }
     } 
+
+    return Pair.of(returnPose, returnTime);
   }
 
   public Pose2d getPose(){
