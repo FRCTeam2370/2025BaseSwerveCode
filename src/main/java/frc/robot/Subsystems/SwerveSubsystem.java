@@ -92,8 +92,6 @@ public class SwerveSubsystem extends SubsystemBase {
 
     poseEstimator = new SwerveDrivePoseEstimator(Constants.SwerveConstants.kinematics, getYaw(), getModulePositions(), getPose());
 
-    configurePathPlanner();
-
     PathPlannerLogging.setLogActivePathCallback((poses) -> field.getObject("path").setPoses(poses));
 
     SmartDashboard.putData("Field", field);
@@ -124,8 +122,8 @@ public class SwerveSubsystem extends SubsystemBase {
     SmartDashboard.putNumber("Odometry y", odometry.getPoseMeters().getY());
 
     updateOdometry();
-    odometry.update(getRotation2d(), getModulePositions());
-    //resetOdometry(poseEstimator.getEstimatedPosition());
+    //odometry.update(getRotation2d(), getModulePositions());//USE THIS WHEN TESTING AUTOS WITHOUT FIELD LOCALIZATION
+    resetOdometry(poseEstimator.getEstimatedPosition());
 
     field.setRobotPose(poseEstimator.getEstimatedPosition());
   }
@@ -189,19 +187,20 @@ public class SwerveSubsystem extends SubsystemBase {
 
     boolean doRejectUpdate = false;
 
-    LimelightHelpers.SetRobotOrientation("limelight", poseEstimator.getEstimatedPosition().getRotation().getDegrees(), 0, 0, 0, 0, 0);
-    LimelightHelpers.PoseEstimate mt2 = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
+    LimelightHelpers.SetRobotOrientation("limelight-two", poseEstimator.getEstimatedPosition().getRotation().getDegrees(), 0, 0, 0, 0, 0);
+    LimelightHelpers.PoseEstimate mt2_otherOne = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight");
+    //LimelightHelpers.PoseEstimate mt2_otherOne = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2("limelight-two");
 
-    if(mt2 != null){
+    if(mt2_otherOne != null){
       if(Math.abs(gyro.getAngularVelocityZDevice().getValueAsDouble()) > 720){
         doRejectUpdate = true;
       }
-      if(mt2.tagCount == 0){
+      if(mt2_otherOne.tagCount == 0){
         doRejectUpdate = true;
       }
       if(!doRejectUpdate){
         poseEstimator.setVisionMeasurementStdDevs(VecBuilder.fill(0.7, 0.7, 9999999));
-        poseEstimator.addVisionMeasurement(mt2.pose, mt2.timestampSeconds);
+        poseEstimator.addVisionMeasurement(mt2_otherOne.pose, mt2_otherOne.timestampSeconds);
       }
     } 
   }
